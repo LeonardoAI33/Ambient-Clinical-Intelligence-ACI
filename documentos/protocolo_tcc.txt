@@ -1,0 +1,26 @@
+PROTOCOLO DE ATENDIMENTO EM TERAPIA COGNITIVO-COMPORTAMENTAL (TCC)
+Documento interno de apoio ao CogniTrace AI.
+
+1. ESTRUTURA DA SESSÃO
+Cada sessão segue uma agenda colaborativa: checagem do humor (0 a 10),
+ponte com a sessão anterior, definição de pauta, trabalho no tema central,
+resumo e tarefa de casa. A duração recomendada é de 50 minutos.
+
+2. REGISTRO DE PENSAMENTOS AUTOMÁTICOS (RPD)
+Colunas do RPD: situação, pensamento automático, emoção e intensidade (0 a 100),
+evidências a favor, evidências contra e pensamento alternativo.
+Esse instrumento é aplicado entre as sessões pelo paciente.
+
+3. FORMULAÇÃO DE CASO
+A formulação envolve: dados de identificação, queixa principal, história de vida,
+pensamentos automáticos recorrentes, crenças intermediárias (regras e pressupostos)
+e crenças centrais. A crença central é a hipótese mais estável do caso.
+
+4. EXEMPLO DE CRENÇA CENTRAL
+Um paciente com crença central de desamparo tende a reagir a perdas com retraimento.
+A crença central costuma se expressar como uma frase curta, por exemplo:
+"eu sou incompetente" ou "eu não sou amado".
+
+5. ALTA TERAPÊUTICA
+A alta é considerada quando o paciente domina as ferramentas cognitivas de forma
+autônoma e mantém ganhos por pelo menos dois meses após o espaçamento das sessões.
