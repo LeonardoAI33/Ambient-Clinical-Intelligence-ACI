@@ -1,0 +1,56 @@
+=====================================================================
+REGISTRO DE PENSAMENTOS AUTOMATICOS (RPD) - TAREFA DE CASA
+=====================================================================
+DOCUMENTO FICTICIO - DADOS SIMULADOS PARA FINS DE DEMONSTRACAO.
+Paciente: Ana Beatriz Ferreira (ficticio)
+Periodo: semana de 14/04 a 20/04/2026
+Preenchido pela propria paciente entre as sessoes.
+
+Colunas: Situacao | Pensamento automatico | Emocao (intensidade 0-100) |
+         Evidencias a favor | Evidencias contra | Resposta alternativa
+
+---------------------------------------------------------------------
+REGISTRO 1 - Segunda-feira, 08h10
+---------------------------------------------------------------------
+Situacao: A coordenadora entrou na minha sala durante a explicacao.
+Pensamento automatico: "Ela esta me vigiando porque quer me demitir."
+Emocao: Ansiedade (85) / Medo (80)
+Evidencias a favor: Ela entrou sem avisar.
+Evidencias contra: Ela passa em varias salas todos os dias; nunca falou
+  nada negativo sobre mim; minha avaliacao do semestre passado foi boa.
+Resposta alternativa: "Ela faz rondas de rotina. Nao ha prova de que eu
+  sera demitida."
+
+---------------------------------------------------------------------
+REGISTRO 2 - Quarta-feira, 21h30
+---------------------------------------------------------------------
+Situacao: Pensei em como seria se eu errasse na prova de amanha.
+Pensamento automatico: "Se eu errar, perco o emprego e minha familia passa fome."
+Emocao: Ansiedade (95) / Tristeza (60)
+Evidencias a favor: Nenhuma concreta.
+Evidencias contra: Ja errei outras vezes e nada aconteceu; tenho estabilidade;
+  meu marido tambem trabalha.
+Resposta alternativa: "Um erro pontual nao determina meu emprego. Isso e
+  um pensamento catastrofico."
+
+---------------------------------------------------------------------
+REGISTRO 3 - Sexta-feira, 07h00
+---------------------------------------------------------------------
+Situacao: Acordei cansada e pensei em faltar ao trabalho.
+Pensamento automatico: "Nao vou dar conta, sou uma fraude como professora."
+Emocao: Tristeza (70) / Culpa (65)
+Evidencias a favor: Estou cansada e dormi mal.
+Evidencias contra: Meus alunos evoluiram; colegas me procuram para ajuda;
+  tenho 10 anos de experiencia.
+Resposta alternativa: "Estar cansada nao significa que sou uma fraude.
+  Sao coisas diferentes."
+
+---------------------------------------------------------------------
+OBSERVACOES DO TERAPEUTA (preenchido em sessao)
+---------------------------------------------------------------------
+Padroes identificados neste RPD:
+- Catastrofizacao (Registros 1 e 2)
+- Leitura mental (Registro 1)
+- Rotulacao global / crenca de incompetencia (Registro 3)
+Emocao predominante: ansiedade e culpa.
+Paciente demonstrou capacidade crescente de gerar respostas alternativas.
