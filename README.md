@@ -1,4 +1,6 @@
 # Ambient Clinical Intelligence (ACI)
+![image alt](https://github.com/user-attachments/assets/51fc8697-25d0-4398-81e0-46c32edfa7f1)
+
 
 ## I. Introdução
 Este projeto, apresento o desenvolvimento de um Produto Mínimo Viável (MVP) que criei chamado **"Ambient Clinical Intelligence (ACI)"**. O **ACI** é um Agente de IA projetado para auxiliar *psicólogos* e *terapêutas* durante os processos de finalização dos relatórios e prontuários, ele atua como um "economizador de tempo". Ele foi desenvolvido precisamente para a automatização de tarefas específicas (ex: organizar e analisar os dados da última consulta do paciente). O **ACI** automatiza parte dessas tarefas, operando como um *"Segundo motor" (o que ele não fará: substituir o psicólogo. o que ele fará: auxiliar o psicólogo)*. É um agente que poderá ajudá-lo através de algumas formas: 
