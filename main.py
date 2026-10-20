@@ -1,202 +1,285 @@
-from click import prompt
-from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
+import os
+import json
+import hashlib
+
+import numpy as np
 import streamlit as st
-import time
-import re
-import math
-from pathlib import Path
+from llama_cpp import Llama
 
+# ----------------------------------------------------------------------
+# CONFIGURAÇÕES
+# ----------------------------------------------------------------------
+PASTA_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 
-# Carrega o Modelo e o Tokenizer do Hugging Face
-tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-4-mini-instruct")
-model = AutoModelForCausalLM.from_pretrained("microsoft/Phi-4-mini-instruct")
+MODELO_CHAT = os.path.join(PASTA_SCRIPT, "gemma-3-4b-it-Q4_K_M.gguf")
+MODELO_EMBEDDING = os.path.join(PASTA_SCRIPT, "bge-m3-Q8_0.gguf")
 
-# Cria um Pipeline de Geração de Texto
-generator = pipeline("text-generation", model="microsoft/Phi-4-mini-instruct", tokenizer=tokenizer)
+# Se usar o nomic-embed-text-v1.5, troque por:
+# PREFIXO_DOC = "search_document: "
+# PREFIXO_QUERY = "search_query: "
+PREFIXO_DOC = ""
+PREFIXO_QUERY = ""
 
+PASTA_DOCS = os.path.join(PASTA_SCRIPT, "documentos")
+PASTA_INDICE = os.path.join(PASTA_SCRIPT, "indice")
+os.makedirs(PASTA_DOCS, exist_ok=True)
+os.makedirs(PASTA_INDICE, exist_ok=True)
 
-# ETAPA I - Estrutura do System Prompt
-SYSTEM_PROMPT = (
-    "Você é o CogniTrace, um assistente de IA especializado em psicologia clínica "
-    "que apoia psicólogos na análise de documentos de pacientes.\n\n"
-    "PAPEL: agir como um assistente humano de psicologia, com postura ética, "
-    "cuidadosa e baseada em evidências (abordagem cognitivo-comportamental).\n\n"
-    "REGRAS:\n"
-    "1. Baseie-se EXCLUSIVAMENTE no documento fornecido pelo usuário.\n"
-    "2. Não invente informações que não estejam no texto.\n"
-    "3. Não faça diagnósticos definitivos; apresente hipóteses para o psicólogo revisar.\n"
-    "4. Use linguagem técnica, objetiva e respeitosa.\n\n"
-    "4. Formate em Markdown: use ## para títulos, - para listas e **negrito** para termos-chave."
-    "FORMATO DA RESPOSTA:\n"
-    "- Comece sempre com a palavra 'CogniTrace'.\n"
-    "- Resumo do caso\n"
-    "- Padrões e distorções cognitivas observadas\n"
-    "- Hipóteses de crenças centrais\n"
-    "- Sugestões de intervenção e pontos para o psicólogo revisar."
-)
-
-# ETAPA II - Função para Gerar Texto com Base em um Prompt
-def gerar_texto(prompt, max_length=4096, system_prompt=SYSTEM_PROMPT):
-    mensagens = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": prompt},
-    ]
-    texto_formatado = tokenizer.apply_chat_template(
-        mensagens, tokenize=False, add_generation_prompt=True
-    )
-    resultado = generator(texto_formatado, max_new_tokens=4096, max_length=max_length, num_return_sequences=1,return_full_text=False)
-    return resultado[0]['generated_text']
-
-# ETAPA III - Função de Efeito Máquina de Escrever
-def typewriter_effect(text: str, speed: float = 0.03):
-    """Efeito máquina de escrever."""
-    container = st.empty()
-    displayed = ""
-    for ch in text:
-        displayed += ch
-        container.markdown(f"\n{displayed}█\n")
-        time.sleep(speed)
-    container.markdown(f"\n{displayed}\n")
-
-
-
-# ETAPA IV - Leitura do Documento e Divisão de Chunks
 CHUNK_SIZE = 120      # palavras por trecho
 CHUNK_OVERLAP = 30    # sobreposição entre trechos
-TOP_K = 4             # trechos recuperados por pergunta
+TOP_K = 4             # quantos trechos enviar ao modelo
+MIN_SCORE = 0.25      # similaridade mínima (ajuste olhando as fontes na tela)
 
-# ETAPA V - Função de Ler o Documento/Texto Anexado
-def ler_documento(arquivo):
-    """Lê o conteúdo de um documento .txt/.md.
+N_CTX = 4096
+N_THREADS = 3
+HISTORICO_MAX = 6     # últimas mensagens enviadas ao modelo
 
-    Aceita tanto um arquivo enviado pelo Streamlit (UploadedFile, com .read())
-    quanto um caminho/str. Retorna o texto como string.
-    """
-    if hasattr(arquivo, "read"):          # arquivo anexado na interface
-        dados = arquivo.read()
-    else:                                 # caminho no disco
-        dados = Path(str(arquivo)).read_bytes()
-    if isinstance(dados, bytes):
-        try:
-            return dados.decode("utf-8")
-        except UnicodeDecodeError:
-            return dados.decode("latin-1")
-    return dados
-
-# ETAPA VI - Função de Dividir Trechos
-def dividir_em_trechos(texto, tamanho=CHUNK_SIZE, sobreposicao=CHUNK_OVERLAP):
-    """Divide o texto em trechos de N palavras com sobreposição."""
-    palavras = texto.split()
-    if not palavras:
-        return []
-    passo = max(1, tamanho - sobreposicao)
-    trechos = []
-    for i in range(0, len(palavras), passo):
-        bloco = palavras[i:i + tamanho]
-        if not bloco:
-            break
-        trechos.append(" ".join(bloco))
-        if i + tamanho >= len(palavras):
-            break
-    return trechos
+SYSTEM_PROMPT = (
+    "Você é o CogniTrace, um assistente de IA especializado em psicologia clínica "
+        "que apoia psicólogos na análise de documentos de pacientes.\n\n"
+        "PAPEL: agir como um assistente humano de psicologia, com postura ética, "
+        "cuidadosa e baseada em evidências (abordagem cognitivo-comportamental).\n\n"
+        "REGRAS:\n"
+        "1. Baseie-se EXCLUSIVAMENTE no documento fornecido pelo usuário.\n"
+        "2. Não invente informações que não estejam no texto.\n"
+        "3. Não faça diagnósticos definitivos; apresente hipóteses para o psicólogo revisar.\n"
+        "4. Use linguagem técnica, objetiva e respeitosa.\n\n"
+        "4. Formate em Markdown: use ## para títulos, - para listas e **negrito** para termos-chave."
+        "FORMATO DA RESPOSTA:\n"
+        "- Comece sempre com a palavra 'CogniTrace'.\n"
+        "- Resumo do caso\n"
+        "- Padrões e distorções cognitivas observadas\n"
+        "- Hipóteses de crenças centrais\n"
+        "- Sugestões de intervenção e pontos para o psicólogo revisar."
+)
 
 
-
-# ETAPA VII - RECUPERAÇÃO (RAG minimalista): TF-IDF puro, sem frameworks pesados
-def _tokens(texto):
-    return re.findall(r"\b[a-z0-9áàâãéèêíïóôõöúüçñ]+\b", texto.lower())
-
-
-def _vetor_tfidf(tokens, idf):
-    if not tokens:
-        return {}
-    tf = {}
-    for t in tokens:
-        tf[t] = tf.get(t, 0) + 1
-    vetor = {t: (c / len(tokens)) * idf.get(t, 1.0) for t, c in tf.items()}
-    norma = math.sqrt(sum(v * v for v in vetor.values())) or 1.0
-    return {t: v / norma for t, v in vetor.items()}
-
-
-def recuperar_trechos(consulta, trechos, top_k=TOP_K):
-    """Retorna os trechos mais relevantes para a consulta (similaridade de cosseno)."""
-    if not trechos or not consulta.strip():
-        return []
-
-    tokens_trechos = [_tokens(t) for t in trechos]
-    df = {}
-    for toks in tokens_trechos:
-        for termo in set(toks):
-            df[termo] = df.get(termo, 0) + 1
-    total = max(1, len(trechos))
-    idf = {termo: math.log((1 + total) / (1 + n)) + 1 for termo, n in df.items()}
-
-    vetor_q = _vetor_tfidf(_tokens(consulta), idf)
-    if not vetor_q:
-        return []
-
-    pontuados = []
-    for trecho, toks in zip(trechos, tokens_trechos):
-        vetor = _vetor_tfidf(toks, idf)
-        score = sum(vetor_q.get(t, 0.0) * v for t, v in vetor.items())
-        if score > 0:
-            pontuados.append((score, trecho))
-    pontuados.sort(key=lambda item: item[0], reverse=True)
-    return [trecho for _, trecho in pontuados[:top_k]]
-
-
-def montar_contexto(trechos):
-    """Junta os trechos recuperados em um bloco de texto para o prompt."""
-    return "\n\n".join(f"[Trecho {i}]\n{t}" for i, t in enumerate(trechos, 1))
-
-
-# ---------------------------------------------------------------------
-# ETAPA VIV - Interface Principal + RAG
-def main():
-    st.title("CogniTrace AI")
-
-    # 2) Lê o texto/documento anexado
-    arquivo = st.file_uploader(
-        "Anexe o documento do paciente (.txt ou .md)", type=["txt", "md"]
+# ----------------------------------------------------------------------
+# MODELOS (carregados uma única vez)
+# ----------------------------------------------------------------------
+@st.cache_resource(show_spinner="Carregando modelo de chat...")
+def carregar_llm():
+    return Llama(
+        model_path=MODELO_CHAT,
+        n_ctx=4096,
+        n_threads=4,
+        verbose=False,
     )
-    # Pergunta opcional do psicólogo sobre o documento
-    pergunta = st.chat_input("Pergunte algo sobre o documento (opcional):")
 
-    if arquivo is None:
-        st.warning("Por favor, anexe um documento .txt ou .md para análise.")
-        return
 
-    texto = ler_documento(arquivo)
-    if not texto.strip():
-        st.warning("O documento está vazio.")
-        return
+@st.cache_resource(show_spinner="Carregando modelo de embeddings...")
+def carregar_embedder():
+    return Llama(
+        model_path=MODELO_EMBEDDING,
+        embedding=True,
+        n_ctx=4096,
+        n_batch=2048,
+        n_threads=4,
+        verbose=False,
+    )
 
-    trechos = dividir_em_trechos(texto)
 
-    # 3) Gera com a IA uma análise do documento como assistente de psicologia
-    if pergunta:
-        # RAG: recupera só os trechos relevantes à pergunta do psicólogo
-        relevantes = recuperar_trechos(pergunta, trechos, top_k=TOP_K)
-        contexto = montar_contexto(relevantes) if relevantes else texto[:8000]
-        entrada = (
-            f"CONTEXTO (trechos do documento do paciente):\n{contexto}\n\n"
-            f"PERGUNTA DO PSICÓLOGO: {pergunta}"
+# ----------------------------------------------------------------------
+# LEITURA E CHUNKING DOS DOCUMENTOS
+# ----------------------------------------------------------------------
+def listar_arquivos():
+    exts = (".txt", ".md", ".pdf")
+    return sorted(
+        f for f in os.listdir(PASTA_DOCS) if f.lower().endswith(exts)
+    )
+
+
+def ler_arquivo(caminho: str) -> str:
+    if caminho.lower().endswith(".pdf"):
+        from pypdf import PdfReader
+        leitor = PdfReader(caminho)
+        return "\n".join((p.extract_text() or "") for p in leitor.pages)
+    with open(caminho, "r", encoding="utf-8", errors="ignore") as f:
+        return f.read()
+
+
+def dividir_em_chunks(texto: str):
+    palavras = texto.split()
+    passo = max(1, CHUNK_SIZE - CHUNK_OVERLAP)
+    chunks = []
+    for inicio in range(0, len(palavras), passo):
+        trecho = palavras[inicio:inicio + CHUNK_SIZE]
+        if trecho:
+            chunks.append(" ".join(trecho))
+        if inicio + CHUNK_SIZE >= len(palavras):
+            break
+    return chunks
+
+
+# ----------------------------------------------------------------------
+# EMBEDDINGS E ÍNDICE VETORIAL
+# ----------------------------------------------------------------------
+def gerar_embedding(embedder: Llama, texto: str) -> np.ndarray:
+    resp = embedder.create_embedding(texto)
+    vetor = np.array(resp["data"][0]["embedding"], dtype=np.float32)
+    if vetor.ndim == 2:            # alguns modelos devolvem 1 vetor por token
+        vetor = vetor.mean(axis=0)
+    vetor /= (np.linalg.norm(vetor) + 1e-9)   # normaliza -> cosseno = produto escalar
+    return vetor
+
+
+def assinatura_docs() -> str:
+    """Muda sempre que um documento é adicionado/alterado/removido."""
+    partes = [f"{CHUNK_SIZE}-{CHUNK_OVERLAP}-{os.path.basename(MODELO_EMBEDDING)}"]
+    for nome in listar_arquivos():
+        c = os.path.join(PASTA_DOCS, nome)
+        partes.append(f"{nome}:{os.path.getsize(c)}:{os.path.getmtime(c)}")
+    return hashlib.md5("|".join(partes).encode()).hexdigest()
+
+
+@st.cache_resource(show_spinner=False)
+def carregar_indice(assinatura: str):
+    caminho_meta = os.path.join(PASTA_INDICE, "meta.json")
+    caminho_vet = os.path.join(PASTA_INDICE, "vetores.npy")
+
+    # 1) tenta reutilizar o índice salvo em disco
+    if os.path.exists(caminho_meta) and os.path.exists(caminho_vet):
+        with open(caminho_meta, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        if meta.get("assinatura") == assinatura:
+            return meta["chunks"], np.load(caminho_vet)
+
+    # 2) senão, reconstrói
+    embedder = carregar_embedder()
+    chunks = []
+    for nome in listar_arquivos():
+        texto = ler_arquivo(os.path.join(PASTA_DOCS, nome))
+        for trecho in dividir_em_chunks(texto):
+            chunks.append({"texto": trecho, "fonte": nome})
+
+    if not chunks:
+        return [], np.zeros((0, 1), dtype=np.float32)
+
+    barra = st.progress(0.0, text="Indexando documentos...")
+    vetores = []
+    for i, c in enumerate(chunks):
+        vetores.append(gerar_embedding(embedder, PREFIXO_DOC + c["texto"]))
+        barra.progress((i + 1) / len(chunks), text=f"Indexando {i + 1}/{len(chunks)}")
+    barra.empty()
+
+    matriz = np.vstack(vetores)
+    np.save(caminho_vet, matriz)
+    with open(caminho_meta, "w", encoding="utf-8") as f:
+        json.dump({"assinatura": assinatura, "chunks": chunks}, f, ensure_ascii=False)
+    return chunks, matriz
+
+
+def buscar_contexto(pergunta: str, chunks, matriz):
+    if len(chunks) == 0:
+        return []
+    embedder = carregar_embedder()
+    q = gerar_embedding(embedder, PREFIXO_QUERY + pergunta)
+    scores = matriz @ q
+    melhores = np.argsort(scores)[::-1][:TOP_K]
+    return [
+        {**chunks[i], "score": float(scores[i])}
+        for i in melhores
+        if scores[i] >= MIN_SCORE
+    ]
+
+
+# ----------------------------------------------------------------------
+# GERAÇÃO
+# ----------------------------------------------------------------------
+def montar_mensagens(pergunta: str, trechos, historico):
+    mensagens = [{"role": "system", "content": SYSTEM_PROMPT}]
+    for m in historico[-HISTORICO_MAX:]:
+        mensagens.append({"role": m["role"], "content": m["content"]})
+
+    if trechos:
+        contexto = "\n\n".join(
+            f"[{i + 1}] (fonte: {t['fonte']})\n{t['texto']}"
+            for i, t in enumerate(trechos)
         )
-    elif st.button("Gerar análise do documento"):
-        # Análise completa do documento anexado
-        entrada = (
-            "Analise o DOCUMENTO abaixo e produza o relatório clínico solicitado.\n\n"
-            f"DOCUMENTO:\n{texto[:12000]}"
+        conteudo = (
+            f"CONTEXT:\n{contexto}\n\n"
+            f"QUESTION:\n{pergunta}"
         )
     else:
-        st.info(f"Documento carregado ({len(trechos)} trechos). "
-                "Clique em 'Gerar análise do documento' ou faça uma pergunta.")
-        return
+        conteudo = pergunta
 
-    with st.spinner("Gerando..."):
-        with st.chat_message('ai'):
-            output = gerar_texto(entrada)
-            typewriter_effect(output)
+    mensagens.append({"role": "user", "content": conteudo})
+    return mensagens
+
+
+def gerar_stream(mensagens):
+    llm = carregar_llm()
+    for parte in llm.create_chat_completion(
+        messages=mensagens, temperature=0.7, stream=True
+    ):
+        delta = parte["choices"][0]["delta"]
+        if delta.get("content"):
+            yield delta["content"]
+
+
+# ----------------------------------------------------------------------
+# INTERFACE
+# ----------------------------------------------------------------------
+def mostrar_fontes(fontes):
+    if not fontes:
+        return
+    with st.expander("Fontes utilizadas"):
+        for f in fontes:
+            st.caption(f"**{f['fonte']}** (similaridade {f['score']:.2f})")
+            st.write(f["texto"])
+
+
+def main():
+    st.title("CogniTrace")
+
+    # --- Sidebar: gerenciamento de documentos ---
+    with st.sidebar:
+        st.header("Base de conhecimento")
+        enviados = st.file_uploader(
+            "Adicionar documentos",
+            type=["txt", "md", "pdf"],
+            accept_multiple_files=True,
+        )
+        if enviados:
+            for arq in enviados:
+                destino = os.path.join(PASTA_DOCS, arq.name)
+                if not os.path.exists(destino):
+                    with open(destino, "wb") as f:
+                        f.write(arq.getbuffer())
+        arquivos = listar_arquivos()
+        st.write(f"{len(arquivos)} documento(s) indexado(s):")
+        for a in arquivos:
+            st.caption(f"• {a}")
+        usar_rag = st.toggle("Usar RAG", value=True)
+
+    chunks, matriz = carregar_indice(assinatura_docs())
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    for msg in st.session_state.messages:
+        with st.chat_message(msg["role"]):
+            st.write(msg["content"])
+            mostrar_fontes(msg.get("fontes"))
+
+    if prompt := st.chat_input("Mensagem:"):
+        historico = list(st.session_state.messages)  # antes de adicionar a atual
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        st.chat_message("user").write(prompt)
+
+        with st.chat_message("assistant"):
+            trechos = []
+            if usar_rag:
+                with st.spinner("Buscando nos documentos..."):
+                    trechos = buscar_contexto(prompt, chunks, matriz)
+
+            mensagens = montar_mensagens(prompt, trechos, historico)
+            resposta = st.write_stream(gerar_stream(mensagens))
+            mostrar_fontes(trechos)
+
+        st.session_state.messages.append(
+            {"role": "assistant", "content": resposta, "fontes": trechos}
+        )
 
 
 if __name__ == "__main__":
