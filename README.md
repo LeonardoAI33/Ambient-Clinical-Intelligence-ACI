@@ -9,7 +9,10 @@ Este projeto, apresento o desenvolvimento de um Produto Mínimo Viável (MVP) qu
 
 # Demo
 Abaixo há um vídeo de demonstração que gravei usando o **ACI** na prática:
+
+
 https://github.com/user-attachments/assets/8007c54b-7872-4680-a53a-8ce6c9f3343f
+
 
 **Análise da Demo:**
 - Eu pedi ao Agente **ACI** para organizar as anotações da Paciente "Ana" em forma de prontuário
@@ -18,7 +21,6 @@ https://github.com/user-attachments/assets/8007c54b-7872-4680-a53a-8ce6c9f3343f
   1. Organizou as informações da Paciente "Ana" (integrando todos os documentos/notas da paciente).
   2. Me forneceu um prontuário personalizado.
   3. Seguiu rigorosamente as instruções inseridas no System Prompt.
-
 
 ## II. Por que minha Proposta seria ideal pra um Psicólogo ou Terapêuta?
 A minha proposta **(ACI)** tem como intenção principal de entregar para você **(psicólogo)** um grande parceiro estratégico, projetado para aliviar sua demanda diária com eficiência de forma pragmática. Imagino que você, como um profissional que trabalha na área da psicologia, costuma dedicar horas em tarefas monótonas e cansativas que aos poucos vai gerando sobrecarga. Esta sobrecarga não impacta apenas na sua produtividade, como também pode afetar a qualidade do atendimento (gerando estresse e desgaste cognitivo diário).
